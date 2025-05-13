@@ -1,0 +1,277 @@
+---
+title: "Ethan Carlini Konell"
+format: html
+editor: visual
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(WDI)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(RColorBrewer)
+
+options(scipen = 999) # REMOVER A NOT. CIENT.
+# DADOS EM PAINEL
+
+# Baixar dados
+dadosenergia <- WDI(country = "all", indicator = "EG.ELC.ACCS.ZS")
+dadosenergia <- na.omit(dadosenergia)
+
+# Selecionar anos
+anos_selecionados <- c(1990, 2000, 2010, 2020, 2023)
+dados_filtrados <- dadosenergia %>% filter(year %in% anos_selecionados)
+
+# Calcular média por país
+media_paises <- dados_filtrados %>%
+  group_by(country) %>%
+  summarise(media_acesso = mean(EG.ELC.ACCS.ZS, na.rm = TRUE)) %>%
+  arrange(desc(media_acesso))
+
+# Top 10 países + Brasil
+top_paises <- unique(c(media_paises$country[1:10], "Brazil"))
+dados_top10 <- dados_filtrados %>% filter(country %in% top_paises)
+
+# Traduzir nomes dos países
+nomes_portugues <- c(
+  "Brazil" = "Brasil",
+  "Norway" = "Noruega",
+  "Iceland" = "Islândia",
+  "Liechtenstein" = "Liechtenstein",
+  "Luxembourg" = "Luxemburgo",
+  "Kuwait" = "Kuwait",
+  "Switzerland" = "Suíça",
+  "Qatar" = "Catar",
+  "Germany" = "Alemanha",
+  "Netherlands" = "Países Baixos",
+  "Denmark" = "Dinamarca",
+  "Bahamas, The" = "Bahamas"
+)
+
+dados_top10$country <- recode(dados_top10$country, !!!nomes_portugues)
+
+# Cores
+cores <- setNames(
+  RColorBrewer::brewer.pal(n = length(unique(dados_top10$country)), name = "Paired"),
+  unique(dados_top10$country)
+)
+
+# Filtrar apenas Brasil para os rótulos
+dados_brasil <- dados_top10 %>% filter(country == "Brasil")
+
+# Adicionar coluna com valor fixo para posição dos rótulos (acima das barras)
+dados_brasil_labels <- dados_brasil %>%
+  mutate(y_label = 104)
+
+# CORTE TRANSVERSAL
+meta <- WDI_data$country
+paises_reais <- meta %>% filter(region != "Aggregates") %>% pull(iso2c)
+
+# Baixar dados de acesso à energia elétrica para 2023
+dadosenergia2023 <- WDI(country = paises_reais, indicator = "EG.ELC.ACCS.ZS", start = 2023, end = 2023)
+dadosenergia2023 <- na.omit(dadosenergia2023)
+
+# Função para selecionar países próximos de determinada faixa
+selecionar_faixa <- function(data, faixa_alvo, n = 2, margem = 5) {
+  data %>%
+    filter(abs(EG.ELC.ACCS.ZS - faixa_alvo) <= margem) %>%
+    slice_min(order_by = abs(EG.ELC.ACCS.ZS - faixa_alvo), n = n)
+}
+
+# Selecionar 2 países por faixa (20%, 40%, 60%, 80%, 100%) e o Brasil
+paises_20 <- selecionar_faixa(dadosenergia2023, 20)
+paises_40 <- selecionar_faixa(dadosenergia2023, 40)
+paises_60 <- selecionar_faixa(dadosenergia2023, 60)
+paises_80 <- selecionar_faixa(dadosenergia2023, 80)
+paises_100 <- dadosenergia2023 %>%
+  filter(EG.ELC.ACCS.ZS >= 99.5) %>%
+  slice_head(n = 2)
+brasil <- dadosenergia2023 %>% filter(country == "Brazil")
+
+# Combinar os países e remover duplicatas
+amostra_final <- bind_rows(paises_20, paises_40, paises_60, paises_80, paises_100, brasil) %>%
+  distinct(country, .keep_all = TRUE) %>%
+  arrange(EG.ELC.ACCS.ZS)
+
+# Criar vetor de tradução apenas para os países presentes
+nomes_ingles <- amostra_final$country
+nomes_portugues <- c(
+  "Brazil" = "Brasil",
+  "Chad" = "Chade",
+  "Burkina Faso" = "Burquina Faso",
+  "Cambodia" = "Camboja",
+  "Senegal" = "Senegal",
+  "Kenya" = "Quênia",
+  "Vietnam" = "Vietnã",
+  "Colombia" = "Colômbia",
+  "China" = "China",
+  "Egypt, Arab Rep." = "Egito"
+)
+
+# Adicionar coluna com nomes traduzidos
+amostra_final$country_pt <- nomes_portugues[amostra_final$country]
+# Se algum nome não foi traduzido (NA), mantém original
+amostra_final$country_pt[is.na(amostra_final$country_pt)] <- amostra_final$country[is.na(amostra_final$country_pt)]
+
+# Ajustar ordem dos países com nomes traduzidos
+amostra_final$country_pt <- factor(amostra_final$country_pt, levels = amostra_final$country_pt[order(amostra_final$EG.ELC.ACCS.ZS)])
+
+# SÉRIE TEMPORAL
+dados_brasil <- WDI(country = "BR", indicator = "EG.ELC.ACCS.ZS", start = 1990, end = 2023)
+dados_brasil <- na.omit(dados_brasil)
+```
+
+## Porcentagem da população com acesso à eletricidade
+
+A variável analisada ao longo desta apresentação é **EG.ELC.ACCS.ZS**, que representa a **porcentagem da população com acesso à eletricidade** em um determinado país e ano. Essa métrica é fornecida pelo Banco Mundial e é amplamente utilizada para medir o grau de desenvolvimento das infraestruturas básicas de um país.
+
+O acesso à energia elétrica é um **indicador essencial de desenvolvimento socioeconômico**, pois está diretamente ligado à qualidade de vida da população, à produtividade econômica, à inclusão social e à redução da pobreza. Sem eletricidade, é impossível garantir serviços de saúde, educação, comunicação e segurança de maneira eficaz.
+
+Portanto, ao analisar essa variável ao longo do tempo e em diferentes contextos internacionais, é possível compreender **como o desenvolvimento energético reflete desigualdades históricas** e quais países conseguiram superar esses desafios, como é o caso do Brasil.
+
+## Gráfico Painel –Acesso à Energia: Top 10 Países + Brasil em Diferentes Anos (1990, 2000, 2010, 2020, 2023)
+
+A maioria dos países no top 10 (como Noruega, Islândia, Luxemburgo) tem acesso universal (100%) desde os anos 1990.
+
+O Brasil aparece fora do grupo de elite no início, mas ao longo dos anos se aproxima, atingindo patamares similares aos países desenvolvidos em 2023.
+
+A presença constante de países europeus e do Golfo Pérsico no topo mostra alta capacidade de investimento estatal e pequeno território, o que facilita a cobertura universal.
+
+Diferenças estruturais: Países europeus com alta renda per capita e território pequeno conseguiram universalizar energia elétrica há décadas.
+
+Recursos naturais e energia fóssil: Países como Kuwait e Qatar possuem alto PIB devido ao petróleo, facilitando investimentos em infraestrutura básica.
+
+Brasil como país emergente: Destacar os desafios logísticos, tamanho continental e desigualdade social, que dificultaram a universalização.
+
+A inserção do Brasil no grupo de países com 100% de acesso evidencia a eficácia de políticas públicas de longo prazo, mesmo em países com grandes desafios sociais.
+
+```{r}
+#| label: graficodadosempainel
+#| warning: false
+#| echo: false
+
+ggplot(dados_top10, aes(x = factor(year), y = EG.ELC.ACCS.ZS, fill = country)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), color = "black") +
+  
+  # Rótulos do Brasil, todos na mesma altura (acima das barras)
+  geom_text(
+    data = dados_brasil_labels,
+    aes(x = factor(year), y = y_label, label = paste0(round(EG.ELC.ACCS.ZS, 1), "%")),
+    color = "black",
+    size = 3,
+    fontface = "bold"
+  ) +
+  
+  scale_fill_manual(values = cores) +
+  scale_y_continuous(
+    limits = c(0, 105),
+    breaks = seq(0, 100, 10),
+    labels = function(x) paste0(x, "%")
+  ) +
+  labs(
+    title = "Acesso à Energia Elétrica - Top 10 Países + Brasil",
+    x = "Ano",
+    y = "Acesso da população à energia elétrica (%)",
+    fill = "País"
+  ) +
+  theme_minimal(base_family = "Helvetica") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12, face = "bold"),
+    axis.text.y = element_text(size = 12, face = "bold"),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    axis.title.y = element_text(size = 12),
+    legend.position = "bottom",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(face = "bold")
+  )
+```
+
+## Gráfico Corte Transversal – Acesso à Energia em Diversos Países (2023)
+
+O Brasil aparece fora do grupo de elite no início, mas ao longo dos anos se aproxima, atingindo patamares similares aos países desenvolvidos em 2023.
+
+A presença constante de países europeus e do Golfo Pérsico no topo mostra alta capacidade de investimento estatal e pequeno território, o que facilita a cobertura universal.
+
+Diferenças estruturais: Países europeus com alta renda per capita e território pequeno conseguiram universalizar energia elétrica há décadas.
+
+Recursos naturais e energia fóssil: Países como Kuwait e Qatar possuem alto PIB devido ao petróleo, facilitando investimentos em infraestrutura básica.
+
+Brasil como país emergente: Destacar os desafios logísticos, tamanho continental e desigualdade social, que dificultaram a universalização.
+
+A inserção do Brasil no grupo de países com 100% de acesso evidencia a eficácia de políticas públicas de longo prazo, mesmo em países com grandes desafios sociais.
+
+```{r}
+#| label: graficocortetransversal
+#| warning: false
+#| echo: false
+
+ggplot(amostra_final, aes(x = country_pt, y = EG.ELC.ACCS.ZS, fill = country_pt)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Acesso à Energia Elétrica em Países Selecionados (2023)",
+    x = "País",
+    y = "População com Acesso (%)"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  ) +
+  scale_y_continuous(limits = c(0, 105), labels = function(x) paste0(x, "%")) +
+  scale_fill_viridis_d()
+```
+
+## Gráfico de dados de Série Temporal - Evolução do Acesso à Energia Elétrica no Brasil (1990–2023)
+
+Em 1990, o Brasil tinha aproximadamente 80% da população com acesso à energia elétrica.
+
+A partir dos anos 2000, observa-se um crescimento contínuo e expressivo, ultrapassando 90% em 2010.
+
+Em 2023, o acesso atinge quase 100% (99,8%), indicando universalização praticamente completa.
+
+Década de 1990: Brasil ainda enfrentava desigualdades regionais marcantes e infraestrutura precária em áreas rurais, especialmente no Norte e Nordeste.
+
+Anos 2000 (Luz para Todos): Programa lançado em 2003 pelo governo federal com o objetivo de levar energia elétrica às regiões mais remotas. Estima-se que mais de 15 milhões de pessoas foram beneficiadas.
+
+Crescimento Econômico e Industrialização Tardia: A expansão da classe média e da urbanização durante os anos 2000 impulsionaram a demanda e a necessidade de investimentos em infraestrutura energética.
+
+```{r}
+#| label: graficoserietemporal
+#| warning: false
+#| echo: false
+
+ggplot(dados_brasil, aes(x = year, y = EG.ELC.ACCS.ZS)) +
+  geom_line(color = "#1f78b4", size = 1.5) +
+  geom_point(color = "#1f78b4", size = 3) +
+  geom_text(
+    data = dados_brasil %>% filter(year %in% c(1990, 2000, 2010, 2020, 2023)),
+    aes(label = paste0(round(EG.ELC.ACCS.ZS, 1), "%")),
+    vjust = -1,
+    size = 4,
+    fontface = "bold",
+    color = "black"
+  ) +
+  scale_y_continuous(
+    limits = c(0, 105),
+    breaks = seq(0, 100, 10),
+    labels = function(x) paste0(x, "%")
+  ) +
+  scale_x_continuous(breaks = seq(1990, 2023, by = 5)) +
+  labs(
+    title = "Evolução do Acesso à Energia Elétrica no Brasil (1990–2023)",
+    x = "Ano",
+    y = "População com Acesso (%)"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 18),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+```
