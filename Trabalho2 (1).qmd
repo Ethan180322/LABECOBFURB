@@ -1,0 +1,90 @@
+---
+title: "Ethan Carlini Konell"
+format: html
+editor: visual
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(WDI)
+library(dplyr)
+library(ggplot2)
+library(gganimate)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(transformr)
+library(viridis)
+library(gifski)
+
+options(scipen = 999)
+dados <- WDI(indicator = "EG.ELC.ACCS.ZS", start = 2000, end = 2021, extra = TRUE)
+
+# Filtrar países válidos
+dados <- dados %>%
+  filter(region != "Aggregates", !is.na(EG.ELC.ACCS.ZS))
+
+# Carregar mapa mundi sf
+mapa_mundi <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Juntar dados do Banco Mundial com o mapa
+dados_mapa <- mapa_mundi %>%
+  left_join(dados, by = c("iso_a3" = "iso3c"))
+```
+
+```{r}
+#| label: graficodadosempainel
+#| warning: false
+#| echo: false
+
+ggplot(dados_mapa) +
+  geom_sf(aes(fill = EG.ELC.ACCS.ZS), color = "gray80", size = 0.1) +
+  scale_fill_viridis(
+    name = "% com acesso",
+    limits = c(0, 100),
+    na.value = "white"
+  ) +
+  labs(
+    title = "Acesso à Eletricidade no Mundo",
+    subtitle = "Ano: {closest_state}",
+    caption = "Fonte: Banco Mundial (WDI)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold")
+  ) +
+  transition_states(year, transition_length = 2, state_length = 1) +
+  ease_aes("cubic-in-out")
+```
+
+## Introdução
+
+O acesso à eletricidade é um dos pilares do desenvolvimento humano. Ele viabiliza a operação de escolas, hospitais, sistemas de abastecimento de água, comunicação e atividades econômicas básicas. No entanto, embora seja um recurso essencial, seu alcance global ainda é desigual. Este trabalho tem como objetivo apresentar uma análise visual da evolução do acesso à eletricidade no mundo entre os anos de 2000 e 2021, utilizando a variável `EG.ELC.ACCS.ZS` do Banco Mundial, que representa o percentual da população com acesso à eletricidade em cada país.
+
+## A história do acesso à eletricidade no mundo (2000–2021)
+
+Entre os anos 2000 e 2021, observou-se uma expansão significativa do acesso à eletricidade em diversas regiões do planeta. No início do século XXI, países da África Subsaariana e do sul da Ásia enfrentavam sérias limitações estruturais, com grande parte da população vivendo sem acesso a fontes modernas de energia. Esse cenário começou a se transformar, impulsionado por políticas públicas, investimentos internacionais e o avanço das metas globais de desenvolvimento.
+
+Um marco importante foi a adoção dos Objetivos de Desenvolvimento Sustentável (ODS) em 2015. O ODS 7, por exemplo, tem como meta garantir acesso universal à energia limpa, confiável e moderna até 2030. Essa iniciativa incentivou a criação de programas voltados à expansão da infraestrutura elétrica em regiões vulneráveis.
+
+Países como a China e a Índia são exemplos emblemáticos de sucesso. A China atingiu praticamente 100% de acesso à eletricidade já no início da década de 2010. A Índia, com sua vasta população, conseguiu um progresso expressivo entre 2010 e 2020 por meio de grandes programas de eletrificação rural. Por outro lado, nações como Chade, Níger e República Centro-Africana ainda enfrentam enormes desafios, como instabilidade política, pobreza extrema e escassez de investimentos.
+
+No caso do Brasil, os dados revelam que o país já possuía altos índices de acesso à eletricidade no ano 2000. Ainda assim, programas como o *Luz para Todos*, lançado em 2003, foram fundamentais para alcançar populações isoladas na Amazônia Legal e em outras áreas remotas do território nacional.
+
+## Interpretação do gráfico
+
+O mapa animado apresentado ao longo deste trabalho oferece uma visão clara das transformações no acesso à eletricidade no mundo. Visualmente, é possível perceber um crescimento constante da cobertura elétrica, especialmente em países em desenvolvimento. À medida que os anos avançam, as cores do mapa se tornam mais intensas, refletindo o aumento percentual de acesso em muitas regiões.
+
+Apesar desse avanço global, o gráfico também evidencia desigualdades persistentes. Enquanto países da Europa, América do Norte e Ásia Oriental já possuem cobertura praticamente universal desde 2000, parte significativa da África Subsaariana ainda apresenta cobertura inferior a 50%, mesmo em 2021.\
+\
+
+## Referências
+
+ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **NBR 6023: Informação e documentação – Referências – Elaboração**. Rio de Janeiro: ABNT, 2018.
+
+BANCO MUNDIAL. **World Development Indicators**. Acesso à eletricidade (% da população) \[EG.ELC.ACCS.ZS\]. Disponível em: <https://databank.worldbank.org/source/world-development-indicators.> Acesso em: 22 jun. 2025.
+
+BANCO MUNDIAL; IEA; IRENA; UNSD; WHO. *Tracking SDG 7: The Energy Progress Report 2023*. Washington, DC: World Bank, 2023. Disponível em: <https://trackingsdg7.esmap.org.> Acesso em: 22 jun. 2025.
